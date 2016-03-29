@@ -16,6 +16,11 @@ public class Prospector : MonoBehaviour {
 	static public int SCORE_FROM_PREV_ROUND = 0;
 	static public int HIGH_SCORE = 0;
 
+	public Vector3 fsPosMid = new Vector3 (0.5f, 0.90f, 0);
+	public Vector3 fsPosRun = new Vector3 (0.5f, 0.75f, 0);
+	public Vector3 fsPosMid2 = new Vector3 (0.5f, 0.5f, 0);
+	public Vector3 fsPosEnd = new Vector3 (1.0f, 0.65f, 0);
+
 	public Deck					deck;
 	public TextAsset			deckXML;
 	public TextAsset layoutXML;
@@ -33,6 +38,7 @@ public class Prospector : MonoBehaviour {
 	public int chain = 0;
 	public int scoreRun = 0;
 	public int score = 0;
+	public FloatingScore fsRun;
 
 	void Awake(){
 		S = this;
@@ -44,6 +50,7 @@ public class Prospector : MonoBehaviour {
 	}//end of Awake
 
 	void Start() {  
+		Scoreboard.S.score = score;
 		deck = GetComponent<Deck> ();
 		deck.InitDeck (deckXML.text);
 		Deck.Shuffle (ref deck.cards);
@@ -117,6 +124,7 @@ public class Prospector : MonoBehaviour {
 			MoveToDiscard (target);
 			MoveToTarget (Draw ());
 			UpdateDrawPile ();
+			ScoreManager (ScoreEvent.draw);
 			break;
 		case CardState.tableau:
 			bool validMatch = true;
@@ -131,6 +139,7 @@ public class Prospector : MonoBehaviour {
 			tableau.Remove (cd);
 			MoveToTarget (cd);
 			SetTableauFaces ();
+			ScoreManager (ScoreEvent.mine);
 			break;
 		}//end of switch
 		CheckForGameOver();
@@ -205,12 +214,70 @@ public class Prospector : MonoBehaviour {
 	}//end of CheckForGameOver
 
 	void GameOver(bool won){
-		if (won) {
-			print ("Game Over. You won! :)");
-		}//end of if
-		else{ 
-			print("Game Over. You Lost. :(");
-		}//end of else
+		if (won) ScoreManager(ScoreEvent.gameWin);
+		else ScoreManager(ScoreEvent.gameLoss);
 		SceneManager.LoadScene("__Prospector_Scene_0");
 	}//end of GameOver
+
+	void ScoreManager(ScoreEvent sEvt){
+		List<Vector3> fsPts;
+		switch (sEvt) {
+		case ScoreEvent.draw:
+		case ScoreEvent.gameWin:
+		case ScoreEvent.gameLoss:
+			chain = 0;
+			score += scoreRun;
+			scoreRun = 0;
+			if (fsRun != null) {
+				fsPts = new List<Vector3> ();
+				fsPts.Add (fsPosRun);
+				fsPts.Add (fsPosMid2);
+				fsPts.Add (fsPosEnd);
+				fsRun.reportFinishTo = Scoreboard.S.gameObject;
+				fsRun.Init (fsPts, 0, 1);
+				fsRun.fontSizes = new List<float> (new float[] { 28, 36, 4 });
+				fsRun = null;
+			}//end of if
+			break;
+		case ScoreEvent.mine:
+			chain++;
+			scoreRun += chain;
+			FloatingScore fs;
+			Vector3 p0 = Input.mousePosition;
+			p0.x /= Screen.width;
+			p0.y /= Screen.height;
+			fsPts = new List<Vector3> ();
+			fsPts.Add (p0);
+			fsPts.Add (fsPosMid);
+			fsPts.Add (fsPosRun);
+			fs = Scoreboard.S.CreateFloatingScore (chain, fsPts);
+			fs.fontSizes = new List<float> (new float[] { 4, 50, 28 });
+			if (fsRun == null) {
+				fsRun = fs;
+				fsRun.reportFinishTo = null;
+			}//end of if
+			else {
+				fs.reportFinishTo = fsRun.gameObject;
+			}//end of else
+			break;
+		}//end of switch
+
+		switch (sEvt) {
+		case ScoreEvent.gameWin:
+			Prospector.SCORE_FROM_PREV_ROUND = score;
+			print ("You won this round! Round Score: " + score);
+			break;
+		case ScoreEvent.gameLoss:
+			if (Prospector.HIGH_SCORE <= score) {
+				print ("You got the high score! High Score: " + score);
+				Prospector.HIGH_SCORE = score;
+				PlayerPrefs.SetInt ("ProspectorHighScore", score);
+			}//end of if
+			else print ("Your final score was: " + score);
+			break;
+		default:
+			print ("score: " + score + " scoreRun: " + scoreRun + " chain: " + chain);
+			break;
+		}//end of switch
+	}//end of ScoreManager
 }//end of Prospector

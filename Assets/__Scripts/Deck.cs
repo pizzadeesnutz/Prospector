@@ -288,5 +288,4 @@ public class Deck : MonoBehaviour {
 	 	//MAGIC!
 	 	oCards = tCards;
 	 }
-	
 } // Deck class
