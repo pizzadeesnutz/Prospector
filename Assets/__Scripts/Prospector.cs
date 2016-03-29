@@ -1,11 +1,21 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
+public enum ScoreEvent{
+	draw,
+	mine,
+	mineGold,
+	gameWin,
+	gameLoss
+}//end of ScoreEvent
 
 public class Prospector : MonoBehaviour {
-
 	static public Prospector 	S;
+	static public int SCORE_FROM_PREV_ROUND = 0;
+	static public int HIGH_SCORE = 0;
+
 	public Deck					deck;
 	public TextAsset			deckXML;
 	public TextAsset layoutXML;
@@ -20,8 +30,17 @@ public class Prospector : MonoBehaviour {
 	public List<CardProspector> discardPile;
 	public List<CardProspector> drawPile;
 
+	public int chain = 0;
+	public int scoreRun = 0;
+	public int score = 0;
+
 	void Awake(){
 		S = this;
+		if(PlayerPrefs.HasKey("ProspectorHighScore")){
+			HIGH_SCORE = PlayerPrefs.GetInt("ProspectorHighScore");
+		}//end of if
+		score += SCORE_FROM_PREV_ROUND;
+		SCORE_FROM_PREV_ROUND = 0;
 	}//end of Awake
 
 	void Start() {  
@@ -114,6 +133,7 @@ public class Prospector : MonoBehaviour {
 			SetTableauFaces ();
 			break;
 		}//end of switch
+		CheckForGameOver();
 	}//end of CardClicked
 
 	void SetTableauFaces(){
@@ -167,4 +187,30 @@ public class Prospector : MonoBehaviour {
 			cd.SetSortOrder (-10*i);
 		}//end of for
 	}//end of UpdateDrawPile
+
+	void CheckForGameOver(){
+		if(tableau.Count == 0){
+			GameOver (true);
+			return;
+		}//end of if
+		if (drawPile.Count > 0) {
+			return;
+		}//end of if
+		foreach (CardProspector cd in tableau) {
+			if (AdjacentRank (cd, target)) {
+				return;
+			}//end of nested if
+		}//end of foreach
+		GameOver(false);
+	}//end of CheckForGameOver
+
+	void GameOver(bool won){
+		if (won) {
+			print ("Game Over. You won! :)");
+		}//end of if
+		else{ 
+			print("Game Over. You Lost. :(");
+		}//end of else
+		SceneManager.LoadScene("__Prospector_Scene_0");
+	}//end of GameOver
 }//end of Prospector
