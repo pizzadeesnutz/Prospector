@@ -9,22 +9,24 @@ public enum ScoreEvent{
 	mineGold,
 	gameWin,
 	gameLoss
-}//end of ScoreEvent
+}
+
 
 public class Prospector : MonoBehaviour {
+
 	static public Prospector 	S;
 	static public int SCORE_FROM_PREV_ROUND = 0;
 	static public int HIGH_SCORE = 0;
 
-	public Vector3 fsPosMid = new Vector3 (0.5f, 0.90f, 0);
+	public float reloadDelay = 1f;
+
+	public Vector3 fsPosMid = new Vector3 (0.5f, 0.9f, 0);
 	public Vector3 fsPosRun = new Vector3 (0.5f, 0.75f, 0);
 	public Vector3 fsPosMid2 = new Vector3 (0.5f, 0.5f, 0);
 	public Vector3 fsPosEnd = new Vector3 (1.0f, 0.65f, 0);
 
 	public Deck					deck;
 	public TextAsset			deckXML;
-	public TextAsset layoutXML;
-	public Layout layout;
 	public Vector3 layoutCenter;
 	public float xOffset = 3;
 	public float yOffset = -2.5f;
@@ -33,44 +35,85 @@ public class Prospector : MonoBehaviour {
 	public CardProspector target;
 	public List<CardProspector> tableau;
 	public List<CardProspector> discardPile;
-	public List<CardProspector> drawPile;
 
 	public int chain = 0;
 	public int scoreRun = 0;
 	public int score = 0;
 	public FloatingScore fsRun;
 
+	public GUIText GTGameOver;
+	public GUIText GTRoundResult;
+
+	public Layout layout;
+	public TextAsset layoutXML;
+
 	void Awake(){
 		S = this;
-		if(PlayerPrefs.HasKey("ProspectorHighScore")){
-			HIGH_SCORE = PlayerPrefs.GetInt("ProspectorHighScore");
+		if (PlayerPrefs.HasKey ("ProspectorHighScore")) {
+			HIGH_SCORE = PlayerPrefs.GetInt ("ProspectorHighScore");
 		}//end of if
+
 		score += SCORE_FROM_PREV_ROUND;
 		SCORE_FROM_PREV_ROUND = 0;
+
+		GameObject go = GameObject.Find ("GameOver");
+
+		if (go != null) {
+			GTGameOver = go.GetComponent<GUIText>();
+		}//end of if
+
+		go = GameObject.Find ("RoundResult");
+
+		if (go != null) {
+			GTRoundResult = go.GetComponent<GUIText> ();
+		}//end of if
+
+		ShowResultGTs (false);
+
+		go = GameObject.Find ("HighScore");
+		string hScore = "High Score: "+Utils.AddCommasToNumber(HIGH_SCORE);
+		go.GetComponent<GUIText>().text = hScore;
 	}//end of Awake
 
-	void Start() {  
+	void ShowResultGTs(bool show){
+		GTGameOver.gameObject.SetActive (show);
+		GTRoundResult.gameObject.SetActive (show);
+	}//end of ShowResultsGT
+
+	public List<CardProspector> drawPile;
+
+	void Start() {
 		Scoreboard.S.score = score;
 		deck = GetComponent<Deck> ();
 		deck.InitDeck (deckXML.text);
 		Deck.Shuffle (ref deck.cards);
+
 		layout = GetComponent<Layout> ();
 		layout.ReadLayout (layoutXML.text);
+
 		drawPile = ConvertListCardsToListCardProspectors (deck.cards);
 		LayoutGame ();
 	}//end of Start
 
+	List<CardProspector> ConvertListCardsToListCardProspectors(List<Card> lCD){
+		List<CardProspector> lCP = new List<CardProspector>();
+		CardProspector tCP;
+		foreach (Card tCD in lCD){
+			tCP = tCD as CardProspector;
+			lCP.Add(tCP);
+		}//end of foreach
+		return (lCP);
+	}// end of ConvertListCardsToListCardProspectors
+
 	CardProspector Draw(){
 		CardProspector cd = drawPile [0];
 		drawPile.RemoveAt (0);
-		return(cd);
+		return (cd);
 	}//end of Draw
 
 	CardProspector FindCardByLayoutID(int layoutID){
 		foreach (CardProspector tCP in tableau) {
-			if (tCP.layoutID == layoutID) {
-				return (tCP);
-			}//end of if
+			if (tCP.layoutID == layoutID) return (tCP);
 		}//end of foreach
 		return (null);
 	}//end of FindCardByLayoutID
@@ -83,7 +126,8 @@ public class Prospector : MonoBehaviour {
 		}//end of if
 
 		CardProspector cp;
-		foreach(SlotDef tSD in layout.slotDefs){
+
+		foreach (SlotDef tSD in layout.slotDefs) {
 			cp = Draw ();
 			cp.faceUP = tSD.faceUp;
 			cp.transform.parent = layoutAnchor;
@@ -100,23 +144,14 @@ public class Prospector : MonoBehaviour {
 				cp = FindCardByLayoutID (hid);
 				tCP.hiddenBy.Add (cp);
 			}//end of nested foreach
-		}//for each
+		}//end of foreach
 
 		MoveToTarget (Draw ());
+
 		UpdateDrawPile ();
 	}//end of LayoutGame
 
-	List<CardProspector> ConvertListCardsToListCardProspectors (List<Card> lCD){
-		List<CardProspector> lCP = new List<CardProspector>();
-		CardProspector tCP;
-		foreach (Card tCD in lCD){
-			tCP = tCD as CardProspector;
-			lCP.Add(tCP);
-		}//end of for each
-		return(lCP);
-	}//end of ConvertListCardsToListCardProspectors
-
-	public void CardClicked(CardProspector cd){
+	public void CardClicked(CardProspector cd) {
 		switch (cd.state) {
 		case CardState.target:
 			break;
@@ -124,45 +159,23 @@ public class Prospector : MonoBehaviour {
 			MoveToDiscard (target);
 			MoveToTarget (Draw ());
 			UpdateDrawPile ();
-			ScoreManager (ScoreEvent.draw);
+			ScoreManager(ScoreEvent.draw);
 			break;
 		case CardState.tableau:
 			bool validMatch = true;
-			if (!cd.faceUP) {
-				validMatch = false;
-			}//end of if
-			if (!AdjacentRank (cd, target)) {
-				validMatch = false;
-			}//end of if
-			if (!validMatch)
-				return;
-			tableau.Remove (cd);
-			MoveToTarget (cd);
-			SetTableauFaces ();
-			ScoreManager (ScoreEvent.mine);
+			if (!cd.faceUP) validMatch = false;
+			if (!AdjacentRank(cd,target)) validMatch = false;
+			if (!validMatch) return;
+			tableau.Remove(cd);
+			MoveToTarget(cd);
+			SetTableauFaces();
+			ScoreManager(ScoreEvent.mine);
 			break;
 		}//end of switch
-		CheckForGameOver();
+		CheckForGameOver ();
 	}//end of CardClicked
 
-	void SetTableauFaces(){
-		foreach (CardProspector cd in tableau) {
-			bool fup = true;
-			foreach (CardProspector cover in cd.hiddenBy) {
-				if (cover.state == CardState.tableau) fup = false;
-			}//end of nested foreach
-			cd.faceUP = fup;
-		}//end of foreach
-	}//end of SetTableauFaces
-
-	public bool AdjacentRank(CardProspector c0, CardProspector c1){
-		if (!c0.faceUP || !c1.faceUP) return (false);
-		if (Mathf.Abs (c0.rank - c1.rank) == 1) return (true);
-		if ((c0.rank == 1 && c1.rank == 13) || (c0.rank == 13 && c1.rank == 1)) return (true); 
-		return(false);
-	}//end of AdjacentRank
-
-	void MoveToDiscard(CardProspector cd){
+	void MoveToDiscard (CardProspector cd){
 		cd.state = CardState.discard;
 		discardPile.Add (cd);
 		cd.transform.parent = layoutAnchor;
@@ -183,44 +196,65 @@ public class Prospector : MonoBehaviour {
 		cd.SetSortOrder (0);
 	}//end of MoveToTarget
 
-	void UpdateDrawPile(){
+	void UpdateDrawPile() {
 		CardProspector cd;
-		for (int i = 0; i < drawPile.Count; i++) {
-			cd = drawPile [i];
+		for (int i=0; i<drawPile.Count; i++){
+			cd = drawPile[i];
 			cd.transform.parent = layoutAnchor;
 			Vector2 dpStagger = layout.drawPile.stagger;
-			cd.transform.localPosition = new Vector3(layout.multiplier.x * (layout.drawPile.x + i*dpStagger.x),layout.multiplier.y * (layout.drawPile.y + i*dpStagger.y),-layout.drawPile.layerID + .1f*i);
+			cd.transform.localPosition = new Vector3(layout.multiplier.x * (layout.drawPile.x + i*dpStagger.x), layout.multiplier.y * (layout.drawPile.y + i*dpStagger.y), -layout.drawPile.layerID+0.1f*i);
 			cd.faceUP = false;
 			cd.state = CardState.drawpile;
-			cd.SetSortingLayerName (layout.drawPile.layerName);
-			cd.SetSortOrder (-10*i);
-		}//end of for
+			cd.SetSortingLayerName(layout.drawPile.layerName);
+			cd.SetSortOrder(-10*i);
+		}//end of for loop
 	}//end of UpdateDrawPile
 
-	void CheckForGameOver(){
-		if(tableau.Count == 0){
+	public bool AdjacentRank(CardProspector c0, CardProspector c1){
+		if (!c0.faceUP || !c1.faceUP) return(false);
+		if (Mathf.Abs (c0.rank - c1.rank) == 1) return(true);
+		if (c0.rank == 1 && c1.rank == 13) return (true);
+		if (c0.rank == 13 && c1.rank == 1) return (true);
+		return (false);
+	}//end of AdjacentRank
+
+	void SetTableauFaces(){
+		foreach (CardProspector cd in tableau) {
+			bool fup = true;
+			foreach (CardProspector cover in cd.hiddenBy) {
+				if (cover.state == CardState.tableau) fup = false;
+			}//end of nested foreach
+			cd.faceUP = fup;
+		}//end of foreach
+	}//end of SetTableauFaces
+
+	void CheckForGameOver() {
+		if (tableau.Count == 0) {
 			GameOver (true);
 			return;
 		}//end of if
-		if (drawPile.Count > 0) {
-			return;
-		}//end of if
+		if (drawPile.Count > 0) return;
 		foreach (CardProspector cd in tableau) {
 			if (AdjacentRank (cd, target)) {
 				return;
-			}//end of nested if
+			}//end of if
 		}//end of foreach
-		GameOver(false);
+		GameOver (false);
 	}//end of CheckForGameOver
 
-	void GameOver(bool won){
+	void GameOver(bool won) {
 		if (won) ScoreManager(ScoreEvent.gameWin);
 		else ScoreManager(ScoreEvent.gameLoss);
-		SceneManager.LoadScene("__Prospector_Scene_0");
+		Invoke ("ReloadLevel", reloadDelay);
 	}//end of GameOver
 
-	void ScoreManager(ScoreEvent sEvt){
+	void ReloadLevel(){
+		SceneManager.LoadScene("__Prospector_Scene_0");
+	}//end of ReloadLevel
+
+	void ScoreManager (ScoreEvent sEvt) {
 		List<Vector3> fsPts;
+
 		switch (sEvt) {
 		case ScoreEvent.draw:
 		case ScoreEvent.gameWin:
@@ -228,14 +262,14 @@ public class Prospector : MonoBehaviour {
 			chain = 0;
 			score += scoreRun;
 			scoreRun = 0;
-			if (fsRun != null) {
-				fsPts = new List<Vector3> ();
+			if (fsRun != null){
+				fsPts = new List<Vector3>();
 				fsPts.Add (fsPosRun);
 				fsPts.Add (fsPosMid2);
 				fsPts.Add (fsPosEnd);
 				fsRun.reportFinishTo = Scoreboard.S.gameObject;
 				fsRun.Init (fsPts, 0, 1);
-				fsRun.fontSizes = new List<float> (new float[] { 28, 36, 4 });
+				fsRun.fontSizes = new List<float>(new float[] {14,18,2});
 				fsRun = null;
 			}//end of if
 			break;
@@ -246,37 +280,46 @@ public class Prospector : MonoBehaviour {
 			Vector3 p0 = Input.mousePosition;
 			p0.x /= Screen.width;
 			p0.y /= Screen.height;
-			fsPts = new List<Vector3> ();
+			fsPts = new List<Vector3>();
 			fsPts.Add (p0);
 			fsPts.Add (fsPosMid);
 			fsPts.Add (fsPosRun);
-			fs = Scoreboard.S.CreateFloatingScore (chain, fsPts);
-			fs.fontSizes = new List<float> (new float[] { 4, 50, 28 });
-			if (fsRun == null) {
+			fs = Scoreboard.S.CreateFloatingScore (chain,fsPts);
+			fs.fontSizes = new List<float>(new float[] {4, 50, 28});
+			if (fsRun == null){
 				fsRun = fs;
 				fsRun.reportFinishTo = null;
 			}//end of if
-			else {
-				fs.reportFinishTo = fsRun.gameObject;
-			}//end of else
+			else fs.reportFinishTo = fsRun.gameObject;
 			break;
 		}//end of switch
 
 		switch (sEvt) {
 		case ScoreEvent.gameWin:
+			GTGameOver.text = "Round Over";
 			Prospector.SCORE_FROM_PREV_ROUND = score;
-			print ("You won this round! Round Score: " + score);
+			print ("You won this round! Round score: " + score);
+			GTRoundResult.text = "You won this round! \nRound score: "+score;
+			ShowResultGTs (true);
 			break;
 		case ScoreEvent.gameLoss:
+			GTGameOver.text = "Game Over";
 			if (Prospector.HIGH_SCORE <= score) {
-				print ("You got the high score! High Score: " + score);
+				print ("You got the high score! High score: " + score);
+				string sRR = "You got the high score!\nHigh score: "+score;
+				GTRoundResult.text = sRR;
 				Prospector.HIGH_SCORE = score;
 				PlayerPrefs.SetInt ("ProspectorHighScore", score);
 			}//end of if
-			else print ("Your final score was: " + score);
+			else {
+				print ("Your final score for the game was : " + score);
+				GTRoundResult.text = "Your final score was: "+score;
+			}//end of else
+
+			ShowResultGTs (true);
 			break;
 		default:
-			print ("score: " + score + " scoreRun: " + scoreRun + " chain: " + chain);
+			print ("score: " + score + "   scoreRun:" + scoreRun + "    chain:" + chain);
 			break;
 		}//end of switch
 	}//end of ScoreManager

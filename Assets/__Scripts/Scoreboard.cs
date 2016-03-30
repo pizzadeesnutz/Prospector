@@ -6,26 +6,27 @@ public class Scoreboard : MonoBehaviour {
 	public static Scoreboard S;
 
 	public GameObject prefabFloatingScore;
-	public bool __________________;
+
+	public bool ________________________;
 	[SerializeField]
 	private int _score = 0;
 	public string _scoreString;
 
-	public int score{
-		get{
+	public int score {
+		get {
 			return (_score);
 		}//end of get
-		set{
+		set {
 			_score = value;
-			_scoreString = Utils.AddCommasToNumber (_score);
+			scoreString = Utils.AddCommasToNumber (_score);
 		}//end of set
 	}//end of score
 
-	public string scoreString{
-		get{
+	public string scoreString {
+		get {
 			return(_scoreString);
 		}//end of get
-		set{
+		set {
 			_scoreString = value;
 			GetComponent<GUIText> ().text = _scoreString;
 		}//end of set
@@ -35,8 +36,8 @@ public class Scoreboard : MonoBehaviour {
 		S = this;
 	}//end of Awake
 
-	public void FSCallback(FloatingScore fs){
-		this.score += fs.score;
+	public void FSCallback(FloatingScore fs) {
+		score += fs.score;
 	}//end of FSCallback
 
 	public FloatingScore CreateFloatingScore(int amt, List<Vector3> pts){
@@ -47,12 +48,4 @@ public class Scoreboard : MonoBehaviour {
 		fs.Init (pts);
 		return(fs);
 	}//end of CreateFloatingScore
-
-	void Start () {
-	
-	}//end of Start
-
-	void Update () {
-	
-	}//end of Update
 }//end of Scoreboard

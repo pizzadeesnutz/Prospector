@@ -47,13 +47,9 @@ public class FloatingScore : MonoBehaviour {
 		state = FSState.pre;
 	}//end of Init
 
-	public void FSCallBack(FloatingScore fs){
-		this.score += fs.score;
+	public void FSCallback(FloatingScore fs){
+		score += fs.score;
 	}//end of FSCallBack
-
-	void Start () {
-
-	}//end of Start
 
 	void Update () {
 		if(state == FSState.idle) return;
